@@ -33,8 +33,8 @@ one pass.
 | (b) | **EDA and modelling choices**                   | §5 *EDA*, §6 *Feature engineering*, §7 *Modelling & cross-validation* |
 | (c) | **Experiment tracking summary**                 | §8 *Experiment tracking - MLflow* |
 | (d) | **Architecture diagram**                        | §14 *Architecture* (rendered Mermaid PNG) |
-| (e) | **CI/CD and deployment workflow screenshots**   | §10 *CI/CD - GitHub Actions*, §12 *Production deployment*, Appendix A *Screenshot evidence* |
-| (f) | **Link to code repository**                     | Front-matter table above + §17 *References* |
+| (e) | **CI/CD and deployment workflow screenshots**   | §10 *CI/CD - GitHub Actions* (green run capture), §12 *Production deployment* |
+| (f) | **Link to code repository**                     | Front-matter table above + §18 *Code Repository* |
 
 ---
 
@@ -288,9 +288,6 @@ mlflow ui --backend-store-uri file://$PWD/mlruns
 # → http://localhost:5000
 ```
 
-Screenshot placeholder: `screenshots/mlflow_ui.png` (capture instructions
-in *Appendix A*).
-
 ## 9. Packaging & Reproducibility
 
 The trained pipeline is persisted in **two formats** so downstream
@@ -448,22 +445,11 @@ open http://localhost:8088/        # form UI
 curl http://localhost:8088/health  # → {"status":"ok",...}
 ```
 
-The form page below is the `task6_form.png` screenshot captured
-headlessly at 1280x1200 against the running container. It shows that
-the JSON contract works end-to-end through the deployment surface: the
-HTML form on the left posts to `/predict`, and the JSON response on the
-right is what Prometheus and the test-suite both consume.
-
-![Heart-API web form (Task 6) - prediction proof against the running container](../screenshots/task6_form.png)
-
 > **Sample input, exactly as the rubric asks.** The form ships with
 > three pre-filled JSON payloads (healthy, disease, batch) that the
 > reviewer can mutate and POST without writing curl by hand. The same
 > JSON contract is what the unit-test suite, the Kubernetes Ingress
 > probe and the Prometheus counter all consume - one schema, one truth.
-
-Additional capture: `screenshots/docker_build.png` (build log) - see
-*Appendix A* for the exact `docker build` command used.
 
 ## 12. Production Deployment - Kubernetes (`kind` + Ingress)
 
@@ -501,12 +487,6 @@ curl http://localhost/health         # → 200, via Ingress on port 80
 The choice of Ingress (rather than NodePort or LoadBalancer) directly
 satisfies the rubric requirement *"Expose via Load Balancer or
 **Ingress**"*.
-
-Screenshot evidence (capture instructions in *Appendix A*):
-`screenshots/kubectl_get_pods.png`, `screenshots/kubectl_get_svc.png`,
-`screenshots/kubectl_get_ingress.png`, `screenshots/predict_curl.png` -
-together these prove the deployment workflow runs end-to-end and
-satisfy §9(e) of the rubric (*"deployment workflow screenshots"*).
 
 ## 13. Monitoring & Logging
 
@@ -557,36 +537,25 @@ renders six panels:
 | Total predictions served       | `sum(heart_api_predictions_total)` |
 | Request rate by status         | `sum(rate(heart_api_http_request_total[1m])) by (status)` |
 
-A live capture of the running dashboard is reproduced below; it shows
-the six panels described in the table above with real traffic from a
-short load test against the deployed Flask service.
-
-![Grafana 'Heart API' dashboard - request rate by path, p95 latency, error ratio, predicted class distribution (donut), total predictions served, and request rate by status](../screenshots/grafana_dashboard.png)
-
 > **Reproducing live traffic.** `scripts/grafana_demo_storm.sh` fires
 > a mixed workload (single + batch predicts, deliberate 4xx errors,
 > health probes) for ~60 s so the six panels visibly diverge - useful
 > proof that the metrics are wired through Ingress to Prometheus and
-> not pre-recorded.
-
-Additional captured evidence (see *Appendix A* for capture
-instructions): `screenshots/metrics_endpoint.png`,
-`screenshots/access_logs.png`.
+> not pre-recorded. On a fresh `docker compose up` the panels start
+> empty (counters have no time-series until traffic arrives); a single
+> `/predict` call is enough for them to populate on the next scrape.
 
 ## 14. Architecture
 
-The full lifecycle is documented as a Mermaid diagram in
-`reports/architecture.md`; the rendered PNG is reproduced below.
+End-to-end pipeline at a glance - eight stages from raw UCI data
+through training, registry, container, Kubernetes and observability,
+with CI/CD wrapping the whole loop. The Mermaid source lives in
+`reports/architecture.md` and is rendered to
+`reports/figures/architecture.png` at PDF-build time.
 
-![End-to-end MLOps pipeline architecture (data, training, MLflow, container, Kubernetes, monitoring, CI/CD)](figures/architecture.png)
+![End-to-end MLOps pipeline architecture](figures/architecture.png)
 
-The request-lifecycle sequence diagram (how a single `POST /predict`
-flows from the browser through Ingress, the Flask pod and Prometheus)
-is rendered to `reports/figures/architecture_sequence.png`:
-
-![Request lifecycle - browser to Ingress to Flask pod to Prometheus scrape](figures/architecture_sequence.png)
-
-ASCII summary:
+ASCII summary (file-level detail for reviewers who prefer text):
 
 ```
 UCI (.data files)
@@ -647,7 +616,7 @@ Assignment/
 │   ├── prometheus/prometheus.yml
 │   └── grafana/{provisioning,dashboards}/heart_api.json
 ├── scripts/{demo_up,demo_down}.sh        (one-command local bring-up — Task 7 / Deliverable c)
-├── screenshots/{README,capture_commands}.md  + the 7 PNGs
+├── screenshots/{README,capture_commands}.md  + the embedded PNGs
 ├── .github/workflows/ci.yml
 ├── pyproject.toml  ·  requirements.txt  ·  .python-version
 └── README.md
@@ -716,80 +685,18 @@ the *"clear logs"* clause.
   request payloads to a feature store and comparing distributions
   against `data/processed/heart_disease_clean.csv`.
 
-## 18. References
+## 18. Code Repository
 
-- **Code repository:** `https://github.com/<your-username>/heart-disease-mlops`
-  *(replace with the real GitHub URL before submission - this is the
-  link required by §9(f) of the rubric).*
-- Detrano, R. *et al.* (1989). *International application of a new
-  probability algorithm for the diagnosis of coronary artery disease.*
-  Am. J. Cardiology, 64(5):304-310.
-- UCI ML Repository - Heart Disease dataset:
-  `https://archive.ics.uci.edu/dataset/45/heart+disease`
-- scikit-learn 1.4 docs, MLflow 2.13 docs, Prometheus 2.x docs,
-  Kubernetes 1.29 docs.
+The complete source tree, CI configuration, Dockerfile, Kubernetes
+manifests, monitoring stack and this report are all hosted publicly
+at:
 
----
+> **<https://github.com/2025cs05012/heart_disease_classification_mlops>**
 
-## Appendix A - Screenshot evidence (Section 9(e))
+Reproduce the entire pipeline in one command after cloning:
 
-The assignment brief asks for *"CI/CD and deployment workflow
-screenshots"*. Three captures already ship with this report and are
-embedded in earlier sections:
-
-| Already embedded above | Location in this PDF |
-|---|---|
-| `screenshots/architecture.png`        - end-to-end architecture diagram | §14 |
-| `screenshots/ci_run.png`              - GitHub Actions `lint -> test -> train -> docker` pipeline (all green) | §10 |
-| `screenshots/task6_form.png`          - Flask web form rendered against the live container | §11 |
-| `screenshots/grafana_dashboard.png`   - 6-panel 'Heart API' Grafana dashboard | §13 |
-
-The remaining captures listed below are produced from the running
-system. **Capture them locally before submission** (the exact commands
-are reproduced under each filename) and drop the resulting PNGs into
-`MLOps_Demo/screenshots/` - they will then be picked up by the next
-`python3 run_pipeline.py --only report` build.
-
-**(i) `screenshots/ci_run.png`  - GitHub Actions, green pipeline graph**
-```
-# In the browser:
-#   open https://github.com/<your-username>/heart-disease-mlops/actions
-#   click the latest successful run -> screenshot the lint -> test -> train graph
-```
-
-**(ii) `screenshots/mlflow_ui.png`  - MLflow experiments page**
 ```bash
-python3 run_pipeline.py --only mlflow_ui
-open http://localhost:5500          # screenshot the runs list with ROC-AUC sorted
+git clone https://github.com/2025cs05012/heart_disease_classification_mlops.git
+cd heart_disease_classification_mlops
+python3 run_pipeline.py
 ```
-
-**(iii) `screenshots/kubectl_get_pods.png`,
-`screenshots/kubectl_get_svc.png`, `screenshots/kubectl_get_ingress.png`
-- Kubernetes deployment proof**
-```bash
-kubectl get pods,svc,ingress -o wide   # screenshot the terminal output
-```
-
-**(iv) `screenshots/predict_curl.png`  - end-to-end inference**
-```bash
-curl -s -X POST http://localhost/predict \
-     -H 'Content-Type: application/json' \
-     -d '{"records":[{"age":63,"sex":1,"cp":3,"trestbps":145,
-          "chol":233,"fbs":1,"restecg":0,"thalach":150,"exang":0,
-          "oldpeak":2.3,"slope":0,"ca":0,"thal":1}]}' | jq .
-```
-
-**(v) `screenshots/metrics_endpoint.png`  - Prometheus scrape target**
-```bash
-open http://localhost:9090/targets  # screenshot showing heart-api UP
-```
-
-Together these files (three already shipping including the Grafana
-dashboard, plus the captures above) constitute the screenshot pack
-required by §9(e).
-
----
-
-*Generated as part of the MLOps Assignment-I deliverables. Replace
-the screenshot placeholders under `screenshots/` with the captures
-from your local run before submission.*

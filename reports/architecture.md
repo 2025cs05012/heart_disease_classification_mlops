@@ -11,102 +11,39 @@ mmdc -i reports/architecture.md -o reports/figures/architecture.png \
 ## End-to-end flow
 
 ```mermaid
-flowchart LR
-    %% --- Data layer ---
-    subgraph DATA["Data layer"]
-        UCI[UCI Heart Disease<br/>4 .data files]
-        RAW[(data/raw/)]
-        CLEAN[(data/processed/<br/>heart_disease_clean.csv)]
-        UCI -->|src/data/download.py| RAW
-        RAW -->|src/data/preprocess.py| CLEAN
+flowchart TD
+    classDef stage fill:#dbe9ff,stroke:#1f4ea8,stroke-width:3px,color:#0a2440,font-weight:bold;
+    classDef store fill:#fff1d6,stroke:#a35a00,stroke-width:3px,color:#3a1a00,font-weight:bold;
+    classDef tool  fill:#ecdcfb,stroke:#5a2ea6,stroke-width:3px,color:#2b0e60,font-weight:bold;
+    classDef ext   fill:#d6f5dc,stroke:#1a7f37,stroke-width:3px,color:#08381a,font-weight:bold;
+
+    subgraph BUILD["BUILD"]
+        direction LR
+        DATA[Data Pipeline<br/>UCI &rarr; clean CSV]:::stage
+        TRAIN[Training<br/>GridSearchCV<br/>3 candidates]:::stage
+        REG[(Model Registry<br/>MLflow + joblib)]:::store
+        DATA --> TRAIN --> REG
     end
 
-    %% --- Modelling layer ---
-    subgraph MODEL["Modelling & tracking"]
-        TRAIN[src/models/train.py<br/>GridSearchCV cv=5]
-        MLFLOW[(mlruns/<br/>parent + 3 nested)]
-        JOBLIB[(models/<br/>heart_pipeline.joblib)]
-        MLM[(models/<br/>mlflow_model/)]
-        CLEAN --> TRAIN
-        TRAIN --> MLFLOW
-        TRAIN --> JOBLIB
-        TRAIN --> MLM
+    subgraph SERVE["SERVE"]
+        direction LR
+        APP[Flask API<br/>/predict /health /metrics]:::stage
+        DOCK[(Container<br/>heart-api image)]:::store
+        K8S[Kubernetes<br/>kind + ingress-nginx]:::stage
+        APP --> DOCK --> K8S
     end
 
-    %% --- Serving layer ---
-    subgraph SERVE["Serving"]
-        PRED[src/models/predict.py<br/>load_model + predict]
-        FLASK[src/api/app.py<br/>Flask + gunicorn]
-        IMG[(heart-api:latest<br/>docker/Dockerfile)]
-        JOBLIB --> PRED
-        MLM --> PRED
-        PRED --> FLASK
-        FLASK --> IMG
+    subgraph OPERATE["OPERATE"]
+        direction LR
+        OBS[Observability<br/>Prometheus + Grafana]:::tool
+        USER([Client / curl / browser]):::ext
     end
 
-    %% --- K8s layer ---
-    subgraph K8S["Kubernetes (kind)"]
-        ING[Ingress<br/>ingress-nginx<br/>http://localhost/*]
-        DEP[Deployment<br/>2 replicas + RollingUpdate]
-        SVC[Service<br/>NodePort 30050]
-        HPA[HPA<br/>2..5 replicas @ 70% CPU]
-        IMG -->|kind load docker-image| DEP
-        ING --> SVC
-        SVC --> DEP
-        DEP --- HPA
-    end
+    REG --> APP
+    K8S --> OBS
+    USER --> K8S
 
-    %% --- Observability layer ---
-    subgraph OBS["Observability"]
-        METRICS[/metrics<br/>Prometheus exposition/]
-        LOGS[(stdout JSON access log)]
-        PROM[Prometheus]
-        GRAF[Grafana]
-        DEP --> METRICS
-        DEP --> LOGS
-        METRICS --> PROM --> GRAF
-    end
-
-    %% --- CI/CD layer ---
-    subgraph CI["CI/CD"]
-        GHA[GitHub Actions<br/>lint -> test -> train]
-        ARTS[(metrics.json<br/>figures + joblib<br/>artefacts)]
-        GHA --> ARTS
-    end
-
-    CI -.->|every push / PR| TRAIN
-    CI -.->|every push / PR| FLASK
-
-    %% --- Client ---
-    USER([Client / curl])
-    USER -->|POST /predict| ING
-    USER -->|GET /health| ING
-```
-
-## Request lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Client
-    participant I as Ingress<br/>(ingress-nginx)
-    participant K as K8s Service<br/>(heart-api)
-    participant P as Pod<br/>(gunicorn worker)
-    participant M as Model<br/>(joblib pipeline)
-    participant Pr as Prometheus
-
-    C->>I: POST http://localhost/predict {"age":63,...}
-    I->>K: forward to heart-api Service
-    K->>P: route to ready Pod
-    P->>P: before_request → start timer
-    P->>P: validate JSON + feature columns
-    P->>M: predict(records)
-    M-->>P: prediction, probability
-    P->>P: increment heart_api_predictions_total{label}
-    P->>P: after_request → JSON access log
-    P-->>K: 200 {n, predictions[]}
-    K-->>I: 200 {n, predictions[]}
-    I-->>C: 200 {n, predictions[]}
-    Pr-->>P: GET /metrics  (every 30s)
-    P-->>Pr: heart_api_* counters & histograms
+    CI[CI/CD<br/>GitHub Actions]:::tool
+    CI -.->|every push| TRAIN
+    CI -.->|every push| DOCK
 ```
