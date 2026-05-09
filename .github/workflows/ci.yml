@@ -132,9 +132,12 @@ jobs:
         run: docker build -f docker/Dockerfile -t heart-api:ci .
 
       - name: Image size + layers
+        # Info-only step. Disable pipefail locally so SIGPIPE from `head -20`
+        # closing early on a long `docker history` stream does not fail the job.
+        shell: bash {0}
         run: |
-          docker images heart-api:ci --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}'
-          docker history heart-api:ci --format 'table {{.CreatedBy}}\t{{.Size}}' | head -20
+          docker images heart-api:ci --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}' || true
+          docker history heart-api:ci --format 'table {{.CreatedBy}}\t{{.Size}}' | head -20 || true
 
       - name: Run container
         run: |
@@ -175,9 +178,15 @@ jobs:
       - name: Capture container logs (build/test proof)
         if: always()
         run: |
-          docker logs heart-api > docker-container.log 2>&1
-          echo "--- last 40 lines ---"
-          tail -40 docker-container.log
+          if docker ps -a --format '{{.Names}}' | grep -q '^heart-api$'; then
+            docker logs heart-api > docker-container.log 2>&1
+            echo "--- last 40 lines ---"
+            tail -40 docker-container.log
+          else
+            echo "(container heart-api was never started - an earlier step must have failed)" \
+              > docker-container.log
+            cat docker-container.log
+          fi
 
       - name: Tear down container
         if: always()
