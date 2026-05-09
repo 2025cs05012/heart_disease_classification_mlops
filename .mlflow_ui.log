@@ -1,0 +1,13 @@
+[2026-05-09 17:01:21 +0530] [23259] [INFO] Starting gunicorn 22.0.0
+[2026-05-09 17:01:21 +0530] [23259] [ERROR] Connection in use: ('127.0.0.1', 5500)
+[2026-05-09 17:01:21 +0530] [23259] [ERROR] Retrying in 1 second.
+[2026-05-09 17:01:22 +0530] [23259] [ERROR] Connection in use: ('127.0.0.1', 5500)
+[2026-05-09 17:01:22 +0530] [23259] [ERROR] Retrying in 1 second.
+[2026-05-09 17:01:23 +0530] [23259] [ERROR] Connection in use: ('127.0.0.1', 5500)
+[2026-05-09 17:01:23 +0530] [23259] [ERROR] Retrying in 1 second.
+[2026-05-09 17:01:24 +0530] [23259] [ERROR] Connection in use: ('127.0.0.1', 5500)
+[2026-05-09 17:01:24 +0530] [23259] [ERROR] Retrying in 1 second.
+[2026-05-09 17:01:25 +0530] [23259] [ERROR] Connection in use: ('127.0.0.1', 5500)
+[2026-05-09 17:01:25 +0530] [23259] [ERROR] Retrying in 1 second.
+[2026-05-09 17:01:26 +0530] [23259] [ERROR] Can't connect to ('127.0.0.1', 5500)
+Running the mlflow server failed. Please see the logs above for details.

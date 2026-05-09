@@ -1,0 +1,24 @@
+# Prometheus scrape config for the local heart-api stack.
+#
+# The heart-api Service is exposed via ingress-nginx on the kind cluster,
+# which port-maps :80 of the host to the controller. From inside the
+# Prometheus container we reach the host as host.docker.internal:80.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "heart-api-local"
+
+scrape_configs:
+  - job_name: "heart-api"
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["host.docker.internal:80"]
+        labels:
+          app: "heart-api"
+          env: "local"
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

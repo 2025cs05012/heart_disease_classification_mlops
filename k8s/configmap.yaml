@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: heart-api-config
+  labels:
+    app: heart-api
+data:
+  MODEL_PATH: "/app/models/heart_pipeline.joblib"
+  HOST: "0.0.0.0"
+  PORT: "5000"

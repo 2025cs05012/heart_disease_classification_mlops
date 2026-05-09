@@ -1,0 +1,35 @@
+# Keep the build context lean — copy only what the runtime needs.
+.venv/
+venv/
+.git/
+.github/
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Data we never need at serve time
+data/raw/
+data/processed/
+notebooks/
+reports/
+mlruns/
+mlartifacts/
+
+# Tests + dev artefacts
+unit_test/
+htmlcov/
+.coverage
+coverage.xml
+pytest-report.xml
+
+# Alternative model formats — the API only needs the joblib
+models/mlflow_model/
+
+# Docs / OS junk
+*.md
+*.pdf
+.DS_Store

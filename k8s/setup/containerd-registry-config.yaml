@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: configure-containerd-registry
+  namespace: kube-system
+spec:
+  ttlSecondsAfterFinished: 60
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: configure
+          image: docker.io/kindest/local-path-provisioner:v20251212-v0.29.0-alpha-105-g20ccfc88
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              CERT_DIR=/host/etc/containerd/certs.d/host.docker.internal:5005
+              mkdir -p "$CERT_DIR"
+              cat > "$CERT_DIR/hosts.toml" <<'TOML'
+              server = "http://host.docker.internal:5005"
+
+              [host."http://host.docker.internal:5005"]
+                capabilities = ["pull", "resolve"]
+                skip_verify = true
+              TOML
+              echo "Wrote $CERT_DIR/hosts.toml:"
+              cat "$CERT_DIR/hosts.toml"
+              echo "Reloading containerd via SIGHUP..."
+              # Find containerd pid on the host and signal it
+              for pid in $(ls /host/proc 2>/dev/null | grep -E '^[0-9]+$'); do
+                if [ -r "/host/proc/$pid/comm" ] && [ "$(cat /host/proc/$pid/comm 2>/dev/null)" = "containerd" ]; then
+                  echo "Found containerd at pid $pid"
+                  kill -HUP "$pid" || true
+                fi
+              done
+              echo "Done."
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory

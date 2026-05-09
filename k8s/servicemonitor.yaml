@@ -1,0 +1,26 @@
+# Prometheus Operator ServiceMonitor for the heart-api Service.
+#
+# Apply only on clusters that have the Prometheus Operator installed
+# (it provides the monitoring.coreos.com/v1 CRDs). On vanilla Docker
+# Desktop K8s the manifest is harmless to leave un-applied — the
+# scrape annotations on the Pod template (deployment.yaml) cover the
+# annotation-based discovery used by stand-alone Prometheus.
+#
+# Usage (Prometheus Operator clusters):
+#   kubectl apply -f k8s/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: heart-api
+  labels:
+    app: heart-api
+    release: prometheus  # match your Prometheus Operator release label
+spec:
+  selector:
+    matchLabels:
+      app: heart-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

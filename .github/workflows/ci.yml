@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install ruff
+        run: pip install ruff==0.4.10
+
+      - name: Run ruff
+        run: ruff check src unit_test
+
+  test:
+    name: Pytest + coverage
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build cleaned dataset
+        run: python -m src.data.preprocess
+
+      - name: Run pytest with coverage
+        run: |
+          pytest unit_test/ --cov=src --cov-report=term \
+            --cov-report=xml:coverage.xml \
+            --junitxml=pytest-report.xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            pytest-report.xml
+
+  train:
+    name: Train model + publish artefacts
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build cleaned dataset
+        run: python -m src.data.preprocess
+
+      - name: Train models
+        run: python -m src.models.train --no-mlflow
+
+      - name: Show metrics summary
+        run: cat reports/metrics.json
+
+      - name: Upload model + reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: heart-pipeline-${{ github.run_number }}
+          path: |
+            models/heart_pipeline.joblib
+            models/mlflow_model/
+            reports/metrics.json
+            reports/figures/roc_curves.png
+            reports/figures/confusion_matrix.png
+          retention-days: 14
+
+  docker:
+    name: Docker build + container smoke test
+    runs-on: ubuntu-latest
+    needs: train
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download trained model from train job
+        uses: actions/download-artifact@v4
+        with:
+          name: heart-pipeline-${{ github.run_number }}
+          path: .
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build heart-api image
+        run: docker build -f docker/Dockerfile -t heart-api:ci .
+
+      - name: Image size + layers
+        run: |
+          docker images heart-api:ci --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}'
+          docker history heart-api:ci --format 'table {{.CreatedBy}}\t{{.Size}}' | head -20
+
+      - name: Run container
+        run: |
+          docker run -d --name heart-api -p 5000:5000 heart-api:ci
+          echo "container started; id=$(docker ps -q -f name=heart-api)"
+
+      - name: Wait for /health to return 200
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5000/health >/dev/null; then
+              echo "container healthy after ${i} attempts"
+              curl -s http://localhost:5000/health
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::container failed to become healthy within 60s"
+          docker logs heart-api
+          exit 1
+
+      - name: /predict smoke test
+        run: |
+          curl -fsS -X POST http://localhost:5000/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"age":63,"sex":1,"cp":3,"trestbps":145,"chol":233,"fbs":1,
+                 "restecg":0,"thalach":150,"exang":0,"oldpeak":2.3,"slope":0,
+                 "ca":0,"thal":1,"ca_missing":0}' \
+            | tee predict.json
+          python -c "import json; r=json.load(open('predict.json')); \
+            assert r['predictions'][0]['prediction'] in (0,1), r; \
+            assert 0.0 <= r['predictions'][0]['probability'] <= 1.0, r; \
+            print('predict.json schema OK')"
+
+      - name: /metrics smoke test
+        run: |
+          curl -fsS http://localhost:5000/metrics | grep -E '^heart_api_' | head -10
+
+      - name: Capture container logs (build/test proof)
+        if: always()
+        run: |
+          docker logs heart-api > docker-container.log 2>&1
+          echo "--- last 40 lines ---"
+          tail -40 docker-container.log
+
+      - name: Tear down container
+        if: always()
+        run: docker rm -f heart-api || true
+
+      - name: Upload Docker build/test proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-proof-${{ github.run_number }}
+          path: |
+            docker-container.log
+            predict.json
+          retention-days: 14

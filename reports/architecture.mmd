@@ -1,0 +1,107 @@
+flowchart LR
+    %% ============ STYLES ============
+    classDef data fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    classDef train fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    classDef api fill:#e8f5e9,stroke:#388e3c,color:#1b5e20
+    classDef infra fill:#fff3e0,stroke:#f57c00,color:#e65100
+    classDef ci fill:#fce4ec,stroke:#c2185b,color:#880e4f
+    classDef mon fill:#ede7f6,stroke:#512da8,color:#311b92
+    classDef ext fill:#eceff1,stroke:#455a64,color:#263238,stroke-dasharray: 4 2
+
+    %% ============ EXTERNAL ============
+    UCI[(UCI ML Repository<br/>Heart Disease zip)]:::ext
+    USER([Browser / curl<br/>http://localhost/]):::ext
+    DEV([Developer<br/>git push]):::ext
+
+    %% ============ DATA & TRAINING ============
+    subgraph DATA[Task 1+2 - Data and Modelling]
+        DL[src/data/download.py]:::data
+        MK[src/data/make_dataset.py<br/>clean + impute]:::data
+        FE[src/features/build_features.py<br/>14 features + ColumnTransformer]:::data
+        CSV[(data/processed/<br/>heart_disease_clean.csv)]:::data
+        TR[src/models/train.py<br/>LogReg + RF + GBM<br/>GridSearchCV 5-fold]:::train
+    end
+
+    %% ============ EXPERIMENT TRACKING ============
+    subgraph TRACK[Task 3+4 - Tracking and Packaging]
+        ML[(MLflow runs<br/>mlruns/0/)]:::train
+        JL[(models/<br/>heart_pipeline.joblib)]:::train
+        MLM[(models/mlflow_model/<br/>MLmodel + signature)]:::train
+        REQ[(requirements.txt<br/>17 pinned packages)]:::train
+    end
+
+    %% ============ API ============
+    subgraph APP[Task 6 - Flask API + UI]
+        FORM[GET / form.py<br/>HTML+JS form]:::api
+        PRED[POST /predict<br/>JSON in - prediction+probability]:::api
+        HEAL[GET /health]:::api
+        MET[GET /metrics<br/>Prometheus exposition]:::api
+        APPF[src/api/app.py<br/>Flask + gunicorn]:::api
+    end
+
+    %% ============ CONTAINER + K8S ============
+    subgraph K8S[Task 7 - Containerised Deployment]
+        DOCK[/docker/Dockerfile<br/>python:3.11-slim<br/>non-root appuser/]:::infra
+        IMG[(heart-api:latest<br/>1.18 GB image)]:::infra
+        ING[Ingress nginx<br/>http://localhost:80]:::infra
+        SVC[Service heart-api<br/>NodePort 30050 / 80]:::infra
+        DEP[Deployment heart-api<br/>2 replicas + probes]:::infra
+        HPA[HPA<br/>min=2 max=5 cpu=70%]:::infra
+        POD1[Pod gunicorn worker]:::infra
+        POD2[Pod gunicorn worker]:::infra
+    end
+
+    %% ============ MONITORING ============
+    subgraph MONIT[Task 8 - Monitoring]
+        PROM[Prometheus<br/>:9090]:::mon
+        GRAF[Grafana<br/>:3000]:::mon
+        LOG[/JSON access log<br/>ts, method, path, status, latency_ms/]:::mon
+    end
+
+    %% ============ CI/CD ============
+    subgraph CI[Task 5 - CI/CD]
+        GH[(GitHub repo)]:::ci
+        ACT[GitHub Actions<br/>lint - test - train - docker]:::ci
+        ART[(Artifacts<br/>coverage.xml + metrics.json + smoke logs)]:::ci
+    end
+
+    %% ============ FLOWS ============
+    UCI -->|HTTP| DL
+    DL --> MK
+    MK --> CSV
+    CSV --> FE
+    FE --> TR
+    TR -->|log| ML
+    TR -->|save| JL
+    TR -->|save| MLM
+    TR -->|metrics| ART
+
+    JL -->|loaded by| APPF
+    APPF --> FORM
+    APPF --> PRED
+    APPF --> HEAL
+    APPF --> MET
+
+    REQ --> DOCK
+    APPF --> DOCK
+    JL --> DOCK
+    DOCK --> IMG
+
+    IMG -->|kind load| DEP
+    DEP --> POD1
+    DEP --> POD2
+    HPA -.controls.-> DEP
+    SVC --> POD1
+    SVC --> POD2
+    ING --> SVC
+    USER -->|"/predict, /health, /, /metrics"| ING
+
+    POD1 -->|/metrics scrape| PROM
+    POD2 -->|/metrics scrape| PROM
+    PROM --> GRAF
+    POD1 -->|stdout| LOG
+
+    DEV -->|push| GH
+    GH --> ACT
+    ACT -->|build and smoke-test| IMG
+    ACT --> ART

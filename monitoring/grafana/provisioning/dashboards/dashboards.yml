@@ -1,0 +1,14 @@
+# Auto-load any dashboard JSON dropped under /var/lib/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: "heart-api"
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

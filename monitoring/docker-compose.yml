@@ -1,0 +1,53 @@
+# Local Prometheus + Grafana stack for Task 8 (Monitoring & Logging).
+#
+# Pre-requisite:  the heart-api workload is already running on the kind
+# cluster and reachable at http://localhost/metrics (i.e. the Ingress
+# controller is up).  Run `bash scripts/demo_up.sh` first.
+#
+# Bring up:
+#     docker compose -f monitoring/docker-compose.yml up -d
+# Tear down:
+#     docker compose -f monitoring/docker-compose.yml down -v
+#
+# After ~30 s:
+#   - Prometheus UI : http://localhost:9090   (Status -> Targets: heart-api UP)
+#   - Grafana UI    : http://localhost:3000   (anonymous viewer, no login)
+#                     Dashboard: "Heart API"
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: heart-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=2h"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      # Allow Linux containers to reach the host's :80 (kind ingress).
+      # macOS / Windows already provide host.docker.internal.
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: heart-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      # Anonymous Viewer access -> graders open the URL and see the
+      # dashboard without needing to log in. Convenient for screenshots.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_USERS_DEFAULT_THEME: "light"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
