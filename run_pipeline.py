@@ -225,10 +225,67 @@ def step_preflight(ctx):
         sym = CHECK if ok else yellow("--")
         note = shutil.which(tool) or "(missing - that step will be skipped)"
         print(f"      {sym} {tool:<10} {dim(note)}")
+    cur = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if cur not in _SUPPORTED_PY:
+        alt = next((f"python{v}" for v in _SUPPORTED_PY if shutil.which(f"python{v}")), None)
+        msg = (f"Python {cur} is outside the tested range (3.10-3.12); "
+               + (f"will bootstrap .venv with {alt}" if alt
+                  else "install a compatible Python (e.g. brew install python@3.12)"))
+        print(f"      {yellow('!!')} {msg}")
     if missing_req:
         return StepResult(False, time.time() - t0,
                           red("missing required: " + ", ".join(missing_req)))
     return StepResult(True, time.time() - t0, "all required tools detected")
+
+
+# requirements.txt pins numpy 1.26 / scikit-learn 1.4 - both require
+# Python 3.10..3.12. CI runs on 3.11. If the user is on 3.13+, prefer a
+# compatible interpreter from PATH when bootstrapping the venv.
+_SUPPORTED_PY = ("3.12", "3.11", "3.10")
+
+
+def _pick_bootstrap_python():
+    # Prefer the current interpreter if its version is in the supported set,
+    # else look for python3.12 / 3.11 / 3.10 on PATH.
+    cur = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if cur in _SUPPORTED_PY:
+        return sys.executable
+    for v in _SUPPORTED_PY:
+        path = shutil.which(f"python{v}")
+        if path:
+            return path
+    return sys.executable  # fallback - install will likely fail loudly
+
+
+def _ensure_venv(verbose=False):
+    # PEP 668 escape hatch: Homebrew / Debian system Python ships an
+    # EXTERNALLY-MANAGED marker that blocks `pip install`. If we're running
+    # on such an interpreter and there is no .venv/ yet, create one and
+    # switch PY to it so the rest of the pipeline uses the venv.
+    global PY, VENV_PY
+    if VENV_PY:
+        return
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    import sysconfig
+    marker = Path(sysconfig.get_paths()["stdlib"]) / "EXTERNALLY-MANAGED"
+    cur = f"{sys.version_info.major}.{sys.version_info.minor}"
+    needs_venv = (not in_venv and marker.exists()) or (cur not in _SUPPORTED_PY)
+    if not needs_venv:
+        return
+    venv_dir = ROOT / ".venv"
+    if not venv_dir.exists():
+        boot = _pick_bootstrap_python()
+        boot_v = Path(boot).name
+        with Spinner(f"creating .venv (using {boot_v}; supported: 3.10-3.12)"):
+            rc, out = run([boot, "-m", "venv", str(venv_dir)],
+                          verbose=verbose, timeout=180)
+        if rc != 0:
+            fail_dump(out)
+            return
+    new_py = next((p for p in _VENV_CANDIDATES if p.exists()), None)
+    if new_py:
+        VENV_PY = new_py
+        PY = str(new_py)
 
 
 def step_install_deps(ctx):
@@ -238,6 +295,7 @@ def step_install_deps(ctx):
     if not req.exists():
         return StepResult(False, 0.0, red("requirements.txt missing"))
     t0 = time.time()
+    _ensure_venv(verbose=ctx.args.verbose)
     with Spinner(f"pip install -r requirements.txt  (using {Path(PY).name})"):
         rc, out = run([PY, "-m", "pip", "install", "--quiet",
                        "--disable-pip-version-check", "-r", str(req)],
@@ -509,13 +567,14 @@ def step_report(ctx):
         with Spinner("render Mermaid architecture diagrams"):
             rc, out = run([PY, str(extract)], verbose=v, timeout=60)
             if rc == 0:
-                for src, dst, w, h in (("_arch_flow.mmd", "architecture.png", "1600", "1000"),
+                for src, dst, w, h in (("_arch_flow.mmd", "architecture.png", "1800", "1400"),
                                        ("_arch_seq.mmd", "architecture_sequence.png", "1400", "900")):
                     s = reports / src
                     if s.exists():
                         run(["npx", "-y", "-p", "@mermaid-js/mermaid-cli", "mmdc",
                              "-i", str(s), "-o", str(figures / dst),
-                             "-t", "neutral", "-b", "white", "-w", w, "-H", h],
+                             "-t", "default", "-b", "white", "-w", w, "-H", h,
+                             "--scale", "2"],
                             verbose=v, timeout=180)
                         try:
                             s.unlink()

@@ -102,11 +102,24 @@ Assignment/
 
 ## Setup
 
+> **Python 3.10 – 3.12 required** (3.11 is what CI uses). The pinned
+> `numpy 1.26.4` / `scikit-learn 1.4.2` do not yet ship Python 3.13 or
+> 3.14 wheels. If your default `python3` is newer, use an explicit
+> minor version when creating the venv (e.g. `python3.12`,
+> install with `brew install python@3.12` if needed).
+
 ```bash
 cd Assignment
-python3 -m venv .venv
+python3.12 -m venv .venv          # or python3.11 / python3 if it's <= 3.12
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Or run the orchestrator, which auto-creates the venv with the right
+interpreter (and skips the manual steps above):
+
+```bash
+python3 run_pipeline.py --only install
 ```
 
 > If `python` is shadowed by a shell alias, invoke the venv binary directly:
