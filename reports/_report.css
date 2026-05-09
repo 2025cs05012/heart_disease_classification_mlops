@@ -1,33 +1,158 @@
+/* Heart-Disease MLOps - report stylesheet
+   Colour palette tuned for print: subtle accents, no large dark fills. */
+:root {
+    --ink:       #1f2328;
+    --soft:      #57606a;
+    --line:      #d0d7de;
+    --hair:      #eaeef2;
+    --bg-soft:   #f6f8fa;
+    --primary:   #0969da;
+    --primary-d: #0550ae;
+    --accent:    #8250df;
+    --ok:        #1a7f37;
+    --warn:      #9a6700;
+    --bad:       #cf222e;
+}
 @page { size: A4; margin: 18mm 16mm; }
+
 body {
-    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
     max-width: 7.5in;
     margin: 0 auto;
     padding: 0;
-    color: #222;
-    line-height: 1.45;
+    color: var(--ink);
+    line-height: 1.5;
     font-size: 10.5pt;
 }
-h1 { font-size: 20pt; border-bottom: 2px solid #444; padding-bottom: 4px; margin-top: 0; }
-h2 { font-size: 14pt; margin-top: 1.3em; border-bottom: 1px solid #ccc; padding-bottom: 2px; page-break-after: avoid; }
-h3 { font-size: 11.5pt; margin-top: 1em; page-break-after: avoid; }
-h4 { font-size: 10.8pt; }
-table { border-collapse: collapse; width: 100%; margin: 0.6em 0; page-break-inside: avoid; }
-th, td { border: 1px solid #bbb; padding: 5px 8px; font-size: 9.5pt; vertical-align: top; }
-th { background: #f0f0f0; }
-code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; }
+
+/* --- title (cover) --- */
+header.title-block, .title-block {
+    border: 0;
+    padding: 28px 28px 22px;
+    margin: 0 0 22px;
+    background: linear-gradient(135deg, #eef4ff 0%, #f6f0ff 100%);
+    border-left: 6px solid var(--primary);
+    border-radius: 4px;
+}
+header.title-block h1.title, .title-block h1.title {
+    border: 0; margin: 0; padding: 0; color: var(--primary-d);
+    font-size: 26pt; font-weight: 700; letter-spacing: -0.01em;
+}
+
+/* --- headings --- */
+h1, h2, h3, h4 { font-weight: 600; color: var(--ink); }
+h1 {
+    font-size: 19pt;
+    margin: 1.2em 0 0.4em;
+    padding: 6px 0 6px 14px;
+    border-left: 5px solid var(--primary);
+    background: linear-gradient(90deg, var(--bg-soft), transparent 70%);
+    page-break-before: auto;
+}
+h2 {
+    font-size: 14pt;
+    margin-top: 1.4em; margin-bottom: 0.4em;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--hair);
+    page-break-after: avoid;
+    color: var(--primary-d);
+}
+h3 {
+    font-size: 11.6pt;
+    margin: 1.1em 0 0.4em;
+    padding-left: 9px;
+    border-left: 3px solid var(--accent);
+    page-break-after: avoid;
+    color: #444c56;
+}
+h4 { font-size: 10.6pt; margin: 0.9em 0 0.3em; color: var(--soft); }
+
+p { margin: 0.45em 0 0.55em; }
+
+/* --- tables --- */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.7em 0 0.8em;
+    page-break-inside: avoid;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+}
+th, td {
+    border-bottom: 1px solid var(--hair);
+    padding: 6px 9px;
+    font-size: 9.6pt;
+    vertical-align: top;
+    text-align: left;
+}
+th {
+    background: var(--bg-soft);
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom: 2px solid var(--line);
+}
+tbody tr:nth-child(even) td { background: #fafbfc; }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* --- code --- */
+code, pre, kbd {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+code {
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.88em;
+    color: #c2185b;
+    border: 1px solid var(--hair);
+}
 pre {
-    background: #f7f7f9;
-    border: 1px solid #ddd;
-    padding: 8px;
-    font-size: 8.8pt;
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--primary);
+    padding: 10px 12px;
+    font-size: 8.7pt;
+    line-height: 1.45;
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-word;
     page-break-inside: avoid;
+    border-radius: 4px;
 }
-code { background: #f3f3f5; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
-img { max-width: 100%; height: auto; page-break-inside: avoid; }
+pre code { background: transparent; padding: 0; border: 0; color: var(--ink); }
+
+/* --- callouts via blockquote prefixes --- */
+blockquote {
+    margin: 0.8em 0; padding: 10px 14px;
+    border-left: 4px solid var(--primary);
+    background: #f0f6ff;
+    border-radius: 0 4px 4px 0;
+    color: var(--ink);
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+blockquote p:first-child::first-line { font-weight: 600; }
+blockquote p { margin: 0.2em 0; }
+
+/* --- images / figures --- */
+img {
+    max-width: 100%; height: auto;
+    page-break-inside: avoid;
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    margin: 0.4em 0 0.2em;
+    background: #fff;
+}
+p > img + em, p img + em { display: block; color: var(--soft); font-size: 9pt;
+    margin-top: 4px; text-align: center; }
+
+ul, ol { margin: 0.4em 0 0.7em 1.2em; padding: 0; }
+li { margin: 0.15em 0; }
+hr { border: 0; border-top: 1px solid var(--hair); margin: 1.4em 0; }
+a { color: var(--primary-d); text-decoration: none; }
+a:hover { text-decoration: underline; }
+strong { color: var(--ink); }
 blockquote { color: #555; border-left: 3px solid #bbb; padding-left: 10px; margin-left: 0; }
 ul, ol { padding-left: 22px; }
 hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }

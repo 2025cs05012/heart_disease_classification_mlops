@@ -8,8 +8,15 @@
 | Task    | Binary classification - *presence of heart disease* (`num > 0`) |
 | Stack   | Python 3.11, scikit-learn, MLflow, Flask, GitHub Actions, Docker, Kubernetes (`kind` + `ingress-nginx`), Prometheus, Grafana |
 | Best model | Random Forest, **ROC-AUC = 0.914** on the hold-out test set |
-| **Code repository** | **`https://github.com/<your-username>/heart-disease-mlops`** *(replace with the actual GitHub link before submission)* |
+| **Code repository** | **<https://github.com/2025cs05012/heart_disease_classification_mlops>** |
 | Demo video | `<demo-video-link>` *(replace with the recorded walk-through URL)* |
+
+> **At a glance.** Four-stage GitHub Actions pipeline (lint &rarr; unit
+> tests &rarr; train &rarr; docker smoke) - all green. Random Forest
+> wins on ROC-AUC, packaged as a Flask + scikit-learn container,
+> deployed onto a `kind` Kubernetes cluster behind `ingress-nginx`,
+> instrumented with Prometheus + Grafana for live request, latency and
+> per-class prediction counters.
 
 ---
 
@@ -374,6 +381,12 @@ Screenshot evidence (deliverable for §9(e) of the rubric — the green
 
 ![GitHub Actions CI run - lint, test, train, docker stages all green](../screenshots/ci_run.png)
 
+> **Why four jobs, not one?** Each stage publishes its own artefact
+> (coverage XML, trained model bundle, container smoke log), so a
+> grader can download exactly the evidence they want without rerunning
+> anything locally. Stages run sequentially with `needs:` so a lint
+> failure short-circuits the rest and saves CI minutes.
+
 ## 11. Containerisation - Docker
 
 `docker/Dockerfile` builds a lean serving image (~600 MB):
@@ -426,6 +439,12 @@ HTML form on the left posts to `/predict`, and the JSON response on the
 right is what Prometheus and the test-suite both consume.
 
 ![Heart-API web form (Task 6) - prediction proof against the running container](../screenshots/task6_form.png)
+
+> **Sample input, exactly as the rubric asks.** The form ships with
+> three pre-filled JSON payloads (healthy, disease, batch) that the
+> reviewer can mutate and POST without writing curl by hand. The same
+> JSON contract is what the unit-test suite, the Kubernetes Ingress
+> probe and the Prometheus counter all consume - one schema, one truth.
 
 Additional capture: `screenshots/docker_build.png` (build log) - see
 *Appendix A* for the exact `docker build` command used.
@@ -527,6 +546,12 @@ the six panels described in the table above with real traffic from a
 short load test against the deployed Flask service.
 
 ![Grafana 'Heart API' dashboard - request rate by path, p95 latency, error ratio, predicted class distribution (donut), total predictions served, and request rate by status](../screenshots/grafana_dashboard.png)
+
+> **Reproducing live traffic.** `scripts/grafana_demo_storm.sh` fires
+> a mixed workload (single + batch predicts, deliberate 4xx errors,
+> health probes) for ~60 s so the six panels visibly diverge - useful
+> proof that the metrics are wired through Ingress to Prometheus and
+> not pre-recorded.
 
 Additional captured evidence (see *Appendix A* for capture
 instructions): `screenshots/metrics_endpoint.png`,
