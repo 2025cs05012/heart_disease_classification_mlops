@@ -339,7 +339,7 @@ pipeline is staged so a failure short-circuits later jobs:
 | Job | Runs | What it does |
 |---|---|---|
 | **lint** | always | `ruff check src unit_test` (rules `E`, `W`, `F`, `I`; cfg in `pyproject.toml`) |
-| **test** | after lint | `pip install -r requirements.txt`, build cleaned CSV via `python -m src.data.preprocess`, then `pytest unit_test/ --cov=src --cov-report=xml --junitxml=pytest-report.xml`. Uploads `coverage.xml` + `pytest-report.xml` as the *coverage-report* artefact. |
+| **test** (Unit tests) | after lint | `pip install -r requirements.txt`, build cleaned CSV via `python -m src.data.preprocess`, then `pytest unit_test/ --cov=src --cov-report=xml --junitxml=pytest-report.xml`. Uploads `coverage.xml` + `pytest-report.xml` as the *unit-test-coverage-report* artefact. |
 | **train** | after test | Re-trains all 3 candidates with `python -m src.models.train --no-mlflow` and uploads `models/heart_pipeline.joblib`, `models/mlflow_model/`, `reports/metrics.json`, and the ROC + confusion-matrix figures as the *heart-pipeline-{run}* artefact (14-day retention). |
 
 **Local equivalent of what CI runs:**

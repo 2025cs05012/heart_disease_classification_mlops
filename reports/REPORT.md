@@ -349,7 +349,7 @@ pytest unit_test/ --cov=src --cov-report=term \
 ```
 
 `coverage.xml` and `pytest-report.xml` are uploaded as the
-*coverage-report* artefact (downloadable from the run page).
+*unit-test-coverage-report* artefact (downloadable from the run page).
 
 ### 10.3 Model training (job `train`)
 
@@ -617,7 +617,7 @@ enforced automatically and produces downloadable evidence.
 
 | Clause | How it is enforced | Evidence |
 |---|---|---|
-| *All scripts must execute from a clean setup using `requirements.txt`* | Every CI job (`lint`, `test`, `train`, `docker`) starts on a fresh `ubuntu-latest` runner and installs **only** `pip install -r requirements.txt`. A green run is proof the file is self-contained. The same `requirements.txt` is `COPY`-ed into the Docker image (`docker/Dockerfile` line 24) so the API runs from the identical pinned set. For offline graders, `scripts/verify_clean_setup.sh` reproduces the same flow in an ephemeral venv. | CI run badge · `coverage-report` artefact · `heart-pipeline-N` artefact |
+| *All scripts must execute from a clean setup using `requirements.txt`* | Every CI job (`lint`, `test`, `train`, `docker`) starts on a fresh `ubuntu-latest` runner and installs **only** `pip install -r requirements.txt`. A green run is proof the file is self-contained. The same `requirements.txt` is `COPY`-ed into the Docker image (`docker/Dockerfile` line 24) so the API runs from the identical pinned set. For offline graders, `scripts/verify_clean_setup.sh` reproduces the same flow in an ephemeral venv. | CI run badge · `unit-test-coverage-report` artefact · `heart-pipeline-N` artefact |
 | *Model must serve correctly in an isolated environment (Docker; container build/test proof required)* | Job `docker` (final stage in `.github/workflows/ci.yml`) builds the image with `docker/Dockerfile`, runs the container, polls `/health` until 200, posts a sample to `/predict` and asserts the response schema (prediction ∈ {0,1}, probability ∈ [0,1]), then scrapes `/metrics`. Container `stdout`/`stderr` is captured and uploaded. | `docker-build-proof-N` artefact (`docker-container.log` + `predict.json`) |
 | *Pipeline must fail on code or test errors and give clear logs* | Workflow root sets `defaults.run.shell: bash -euo pipefail {0}` so any non-zero exit aborts immediately and unset variables raise. Jobs are chained via `needs:` (`lint` → `test` → `train` → `docker`), so a red upstream job skips everything downstream. Ruff, pytest, the training script and the smoke-test curls all return non-zero on failure; on `docker` failure the container log is still uploaded via `if: always()`. Locally, the same guarantee is given by `set -euo pipefail` in `scripts/demo_up.sh` and `scripts/verify_clean_setup.sh`. | Failed-job logs in the Actions tab · `::error::` annotations on the diff view |
 
