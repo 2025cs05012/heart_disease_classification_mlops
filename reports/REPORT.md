@@ -221,16 +221,32 @@ Output of `fit_transform` on the cleaned dataset has shape
 
 ## 7. Modelling & Cross-Validation
 
-`src/models/train.py` runs three pipelines through stratified
-`GridSearchCV(cv=5, scoring="roc_auc")` on a 80/20 stratified split
-(seed 42 → 736 train / 184 test):
+`src/models/train.py` follows a strict two-stage protocol so the
+hold-out test set never participates in model selection:
 
-| Model | Grid | Best params | CV ROC-AUC | Test Acc | Test Prec | Test Rec | Test F1 | Test ROC-AUC |
+1. **Stage 1 - hold-out split.** `train_test_split` with
+   `test_size=0.2`, `stratify=y`, `random_state=42` carves the cleaned
+   920-row dataset into **736 train / 184 test**. The 184 test rows
+   are set aside and not touched again until the final evaluation.
+2. **Stage 2 - per-candidate CV on the training portion only.**
+   For each of the three candidate families a single
+   `Pipeline(preprocessor + estimator)` is wrapped in
+   `GridSearchCV(cv=StratifiedKFold(n_splits=5, shuffle=True, seed=42), scoring="roc_auc", refit=True)`
+   and `.fit(X_train, y_train)` is called - so the imputer, scaler and
+   one-hot encoder are refit *inside* every CV fold's training portion
+   (no leakage from validation rows). The refit `best_estimator_` of
+   each family is then scored **once** on the untouched 184-row
+   hold-out:
+
+| Model | Grid (actual, as searched in `train.py`) | Best params | CV ROC-AUC | Test Acc | Test Prec | Test Rec | Test F1 | Test ROC-AUC |
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | Logistic Regression | `C ∈ {0.1, 1, 10}` × `penalty ∈ {l2}` | `C=0.1` | 0.886 | 0.793 | 0.796 | 0.843 | 0.819 | 0.897 |
-| **Random Forest** *(best)* | `n_estimators ∈ {100, 200}` × `max_depth ∈ {6, 8, None}` × `min_samples_split ∈ {2, 5}` | `n=200, depth=8, mss=2` | 0.882 | 0.804 | 0.800 | 0.863 | 0.830 | **0.914** |
-| Gradient Boosting   | `n_estimators ∈ {100, 150}` × `learning_rate ∈ {0.05, 0.1}` × `max_depth ∈ {3, 4}` | `n=150, lr=0.05, depth=3` | 0.871 | 0.821 | 0.805 | 0.892 | 0.847 | 0.910 |
+| **Random Forest** *(best)* | `n_estimators ∈ {200}` × `max_depth ∈ {None, 8}` × `min_samples_split ∈ {2, 5}` | `n=200, depth=8, mss=2` | 0.882 | 0.804 | 0.800 | 0.863 | 0.830 | **0.914** |
+| Gradient Boosting   | `n_estimators ∈ {150}` × `learning_rate ∈ {0.05, 0.1}` × `max_depth ∈ {3}` | `n=150, lr=0.05` | 0.871 | 0.821 | 0.805 | 0.892 | 0.847 | 0.910 |
 
+Grids are deliberately tight (4-6 fits per family) so the full
+training step finishes in &lt; 60 s in CI; widening them is a one-line
+change in `candidates()` if more thorough tuning is desired.
 Selection rule: the highest **test ROC-AUC** wins, breaking ties with
 CV-mean ROC-AUC. Random Forest is selected for production.
 
