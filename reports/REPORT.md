@@ -8,7 +8,7 @@
 | Task    | Binary classification - *presence of heart disease* (`num > 0`) |
 | Stack   | Python 3.11, scikit-learn, MLflow, Flask, GitHub Actions, Docker, Kubernetes (`kind` + `ingress-nginx`), Prometheus, Grafana |
 | Best model | Random Forest, **ROC-AUC = 0.914** on the hold-out test set |
-| **Code repository** | **<https://github.com/2025cs05012/heart_disease_classification_mlops>** |
+| **Code repository** | **<https://github.com/2025cs05012/heart_disease_classification_mlops.git>** |
 | Demo video | `<demo-video-link>` *(replace with the recorded walk-through URL)* |
 
 > **At a glance.** Four-stage GitHub Actions pipeline (lint &rarr; unit
@@ -53,24 +53,49 @@ shell scripts.
   Docker Desktop (or Docker Engine), `kind`, `kubectl`, `pandoc`,
   Node.js + `npx` (for Mermaid rendering).
 
-**1.2 Clone and bootstrap**
+**1.2 Clone the repository**
 
 ```bash
-git clone https://github.com/<your-username>/heart-disease-mlops.git
-cd heart-disease-mlops/MLOps_Demo
-python3 -m venv .venv
+git clone https://github.com/2025cs05012/heart_disease_classification_mlops.git
+cd heart_disease_classification_mlops
+```
+
+**1.3 Install — pick one of two options**
+
+Two install paths are provided so a reviewer can run the project on
+any reasonably-modern macOS / Linux box without first reading the
+README in full.
+
+*Option A — one-command setup (recommended).* `run_pipeline.py` is
+the single entry-point for every task. On first run it auto-detects
+PEP 668 ("externally-managed") system Pythons, picks the highest
+supported `python3.10`-`3.12` interpreter from `PATH`, creates a
+local `.venv/`, and installs all pinned dependencies. No manual venv
+ceremony required.
+
+```bash
+python3 run_pipeline.py --only install        # just bootstrap .venv + deps
+python3 run_pipeline.py                       # full pipeline (Tasks 1-9)
+python3 run_pipeline.py --quick               # skip docker / k8s / monitoring
+python3 run_pipeline.py --only train          # run one named step
+python3 run_pipeline.py --open                # open every live URL in browser
+```
+
+*Option B — manual install (for graders who prefer step-by-step).*
+Use this when you want to inspect each command, or when the
+auto-bootstrap cannot find a compatible interpreter on `PATH`. The
+pinned `numpy 1.26.4` / `scikit-learn 1.4.2` require Python
+**3.10-3.12**; on macOS, `brew install python@3.12` provides one.
+
+```bash
+python3.12 -m venv .venv                  # use 3.10/3.11 if 3.12 missing
 source .venv/bin/activate                 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**1.3 One-shot pipeline (Tasks 1 to 9)**
-
-```bash
-python3 run_pipeline.py                   # full pipeline
-python3 run_pipeline.py --quick           # skips docker / k8s / monitoring
-python3 run_pipeline.py --only train      # run a single named step
-python3 run_pipeline.py --open            # open every live URL in the browser
-```
+After either option the same downstream commands work
+(`python -m src.models.train`, `pytest`, `python -m src.api.app`,
+etc.).
 
 The runner prints a numbered checklist and a summary table of which URLs
 are live (Flask form, MLflow UI, Prometheus, Grafana, final PDF report).
@@ -691,7 +716,7 @@ The complete source tree, CI configuration, Dockerfile, Kubernetes
 manifests, monitoring stack and this report are all hosted publicly
 at:
 
-> **<https://github.com/2025cs05012/heart_disease_classification_mlops>**
+> **<https://github.com/2025cs05012/heart_disease_classification_mlops.git>**
 
 Reproduce the entire pipeline in one command after cloning:
 

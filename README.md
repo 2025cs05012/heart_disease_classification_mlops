@@ -1,6 +1,6 @@
 # MLOps Assignment-I — Heart Disease Classification
 
-[![CI](https://github.com/<your-username>/<your-repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/<your-repo>/actions/workflows/ci.yml)
+[![CI](https://github.com/2025cs05012/heart_disease_classification_mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/2025cs05012/heart_disease_classification_mlops/actions/workflows/ci.yml)
 
 End-to-end MLOps pipeline for the **UCI Heart Disease** dataset: data acquisition → cleaning → EDA → modelling → MLflow tracking → packaging → CI/CD → Docker → Kubernetes (kind + Ingress) → monitoring.
 
@@ -33,8 +33,8 @@ Prerequisites: Docker (Engine or Desktop) running, plus `kind` and
 `kubectl` on PATH (`brew install kind kubectl`).
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>          # or cd <your-repo>/Assignment if pushed as a sub-folder
+git clone https://github.com/2025cs05012/heart_disease_classification_mlops.git
+cd heart_disease_classification_mlops
 
 bash scripts/demo_up.sh
 ```
@@ -102,24 +102,42 @@ Assignment/
 
 ## Setup
 
+```bash
+git clone https://github.com/2025cs05012/heart_disease_classification_mlops.git
+cd heart_disease_classification_mlops
+```
+
 > **Python 3.10 – 3.12 required** (3.11 is what CI uses). The pinned
 > `numpy 1.26.4` / `scikit-learn 1.4.2` do not yet ship Python 3.13 or
 > 3.14 wheels. If your default `python3` is newer, use an explicit
-> minor version when creating the venv (e.g. `python3.12`,
-> install with `brew install python@3.12` if needed).
+> minor version (e.g. `python3.12` — install with
+> `brew install python@3.12` on macOS if missing).
+
+Two install paths are provided — pick whichever you prefer.
+
+### Option A — one-command setup (recommended)
+
+`run_pipeline.py` is the single entry-point for every task. On first
+run it auto-detects PEP 668 (externally-managed) system Pythons,
+picks the highest supported `python3.10`–`3.12` interpreter from
+`PATH`, creates a local `.venv/`, and installs all pinned
+dependencies. No manual venv ceremony required.
 
 ```bash
-cd Assignment
+python3 run_pipeline.py --only install        # just bootstrap .venv + deps
+python3 run_pipeline.py                       # full pipeline (Tasks 1-9)
+python3 run_pipeline.py --quick               # skip docker / k8s / monitoring
+```
+
+### Option B — manual install (step-by-step)
+
+Use this when you want to inspect each command, or when the
+auto-bootstrap cannot find a compatible interpreter on `PATH`.
+
+```bash
 python3.12 -m venv .venv          # or python3.11 / python3 if it's <= 3.12
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-Or run the orchestrator, which auto-creates the venv with the right
-interpreter (and skips the manual steps above):
-
-```bash
-python3 run_pipeline.py --only install
 ```
 
 > If `python` is shadowed by a shell alias, invoke the venv binary directly:
@@ -371,10 +389,9 @@ pipeline is staged so a failure short-circuits later jobs:
 build_features 71 % · download 0 %` — `download.py` is excluded as it makes a
 live UCI HTTP request).
 
-**Activating the badge:** the workflow file uses `Assignment/` as the repo
-root. Either submit the `Assignment/` folder as its own GitHub repository or
-move `.github/` to the outer repository's root, then replace
-`<your-username>/<your-repo>` in the badge URL above with the real path.
+The CI badge at the top of this README is wired to the public repo
+(`2025cs05012/heart_disease_classification_mlops`); a green badge means
+the latest push to `main` passed lint, tests, train, and Docker build.
 
 ---
 
@@ -411,10 +428,10 @@ slope, thal, ca_missing`.
 ### Build & run the container
 
 ```bash
-cd Assignment
+cd heart_disease_classification_mlops
 
-# Build (run from Assignment/ so requirements.txt + src/ + models/ are in the
-# build context). Final image is ~600 MB on python:3.11-slim.
+# Build (run from the repo root so requirements.txt + src/ + models/ are
+# in the build context). Final image is ~600 MB on python:3.11-slim.
 docker build -f docker/Dockerfile -t heart-api:latest .
 
 # Run (publishes port 5000 on the host)
@@ -495,7 +512,7 @@ on it.
 ### One-time cluster setup
 
 ```bash
-cd Assignment
+cd heart_disease_classification_mlops
 
 # A. Create the kind cluster with port mappings + ingress-ready label
 kind create cluster --config k8s/setup/kind-cluster-config.yaml
