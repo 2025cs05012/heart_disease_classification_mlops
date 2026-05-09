@@ -45,7 +45,8 @@ def test_index_returns_html_form(client):
     assert resp.content_type.startswith("text/html")
     body = resp.get_data(as_text=True)
     assert "Heart Disease Predictor" in body
-    assert 'name="age"' in body and 'name="thal"' in body
+    assert 'id="json-input"' in body
+    assert 'POST /predict' in body or '/predict' in body
 
 
 def test_metadata_lists_feature_cols(client):

@@ -397,16 +397,18 @@ without `curl`. The page is built from `src/api/form.py` (no Jinja
 templates, no static files) and reuses the production `/predict`
 endpoint behind the scenes:
 
-- 14 input fields (one per feature) with two preset buttons —
-  *Load disease-risk sample* and *Load low-risk sample* — that
-  populate values matching the records used in the unit tests.
-- *Predict* posts `application/json` to `/predict`, then renders a
-  green `NO DISEASE` / red `DISEASE` badge, a confidence bar
-  (`P[disease]`), and the raw JSON response (`prediction`,
-  `probability`, `label`) in a `<pre>` block — proof on screen that
-  the JSON contract is unchanged.
+- An editable JSON textarea pre-filled with a sample payload, plus
+  four preset buttons — *Load disease-risk sample*, *Load low-risk
+  sample*, *Load batch sample* (list of two records) and
+  *Pretty-print* — so the user can mutate the JSON and resubmit.
+- *Predict* posts the textarea contents as `application/json` to
+  `/predict`, then renders a green `NO DISEASE` / red `DISEASE`
+  badge, a confidence bar (`P[disease]`), and the raw JSON response
+  (`prediction`, `probability`, `label`) in a `<pre>` block —
+  on-screen proof that the JSON contract is unchanged.
 - The route is covered by `unit_test/test_api.py::test_index_returns_html_form`
-  (HTTP 200 · `text/html` · contains the 14 named inputs).
+  (HTTP 200 · `text/html` · contains the JSON-input editor and
+  references the `/predict` endpoint).
 
 Local one-liner for the demo video:
 
