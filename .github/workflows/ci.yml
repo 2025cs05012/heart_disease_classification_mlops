@@ -173,7 +173,11 @@ jobs:
 
       - name: /metrics smoke test
         run: |
-          curl -fsS http://localhost:5000/metrics | grep -E '^heart_api_' | head -10
+          # buffer first so head closing the pipe early can't SIGPIPE curl
+          set +o pipefail
+          curl -fsS http://localhost:5000/metrics > /tmp/metrics.txt
+          grep -cE '^heart_api_' /tmp/metrics.txt
+          grep -E '^heart_api_' /tmp/metrics.txt | head -10
 
       - name: Capture container logs (build/test proof)
         if: always()
