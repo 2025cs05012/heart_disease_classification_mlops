@@ -496,23 +496,65 @@ def step_k8s(ctx):
                       "ingress at http://localhost/  (form, health, predict, metrics)")
 
 
+def _mlflow_ui_owner_of_port_5500(mlruns: Path):
+    # Inspect what is bound to localhost:5500. PIDs are global so the
+    # per-checkout .mlflow_ui.pid file lies as soon as a second clone is on
+    # the same machine - we look at the actual listener instead.
+    # Returns ("free", None) | ("ours", pid_str) | ("other", cmdline)
+    if not have("lsof"):
+        return "free", None
+    rc, out = run(["lsof", "-nP", "-iTCP:5500", "-sTCP:LISTEN", "-Fp"],
+                  verbose=False, timeout=5)
+    if rc != 0 or not out.strip():
+        return "free", None
+    pids = sorted({int(line[1:]) for line in out.splitlines()
+                   if line.startswith("p") and line[1:].isdigit()})
+    candidates = list(pids)
+    for pid in pids:
+        rc2, ppline = run(["ps", "-o", "ppid=", "-p", str(pid)],
+                          verbose=False, timeout=3)
+        if rc2 == 0 and ppline.strip().isdigit():
+            candidates.append(int(ppline.strip()))
+    for pid in candidates:
+        rc2, cmd = run(["ps", "-o", "command=", "-p", str(pid)],
+                       verbose=False, timeout=3)
+        cmd = cmd.strip()
+        if rc2 != 0 or "mlflow" not in cmd or " ui" not in cmd:
+            continue
+        if str(mlruns) in cmd or mlruns.as_uri() in cmd:
+            return "ours", str(pid)
+        return "other", cmd
+    return "other", "non-mlflow process on :5500"
+
+
 def step_mlflow_ui(ctx):
     # Starts the MLflow tracking UI in the background so we can show the
-    # experiments page during the demo. We write the PID to .mlflow_ui.pid
-    # so re-running the step doesn't keep spawning new processes.
+    # experiments page during the demo. We use a port-based ownership check
+    # (not just .mlflow_ui.pid) so a stale UI from another checkout pointing
+    # at a different mlruns/ is detected and replaced.
     mlruns = ROOT / "mlruns"
     if not mlruns.exists():
         return StepResult(False, 0.0, yellow("mlruns/ missing - run 'train' first"))
     t0 = time.time()
     pid_file = ROOT / ".mlflow_ui.pid"
-    # if a previous run is still alive, just reuse it
-    if pid_file.exists():
-        try:
-            os.kill(int(pid_file.read_text().strip()), 0)
-            return StepResult(True, time.time() - t0,
-                              "MLflow UI already running at http://localhost:5500")
-        except (OSError, ValueError):
-            pid_file.unlink(missing_ok=True)
+    state, info = _mlflow_ui_owner_of_port_5500(mlruns)
+    if state == "ours":
+        return StepResult(True, time.time() - t0,
+                          "MLflow UI already running at http://localhost:5500")
+    if state == "other" and "mlflow" in (info or "").lower():
+        # stale MLflow UI from another checkout - it would serve old experiments
+        # to anyone opening :5500. Kill it and relaunch against our mlruns/.
+        rc, out = run(["lsof", "-ti:5500"], verbose=False, timeout=3)
+        for pid in (out.split() if rc == 0 else []):
+            try:
+                os.kill(int(pid), 15)
+            except (OSError, ValueError):
+                pass
+        time.sleep(2)
+    elif state == "other":
+        return StepResult(False, time.time() - t0,
+                          red(f"port 5500 is held by another process: {info[:100]}"))
+    pid_file.unlink(missing_ok=True)
     log = ROOT / ".mlflow_ui.log"
     # detach the child so it survives this script exiting (different flag on Windows)
     kwargs = {"stdout": log.open("w"), "stderr": subprocess.STDOUT,
